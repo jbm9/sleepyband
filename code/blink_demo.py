@@ -39,8 +39,11 @@ class BlinkDemoRunner:
 
         self.led_no = 0
 
+        self.logfile = open(f'log_{int(time.time())}.dump', 'w')
+
     def on_connect_success(self, ble_device):
         self.device = ble_device
+        self.device.attach_traffic_log(self.logfile)
         self.pm.on_connect_success(ble_device)
 
     def session_state_cb(self, pm, old_state, new_state):
@@ -57,6 +60,8 @@ class BlinkDemoRunner:
             if not self.device:
                 time.sleep(0.1)
                 continue
+
+            self.logfile.flush()
 
             logging.debug(f'loop: {self.device.connected} / {self.device.connerr}')
             if not self.device.connected:
