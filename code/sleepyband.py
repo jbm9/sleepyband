@@ -44,7 +44,7 @@ class ProtocolMachine:
     helper method to allocate sequence ids
 
     '''
-    def __init__(self, ss_callback):
+    def __init__(self, ss_callback, session_mode=0):
         self.connection_state = ConnectionState.DISCONNECTED
         self.session_state = SessionState.NOT_STARTED
         self.session_state_cb = ss_callback
@@ -54,8 +54,12 @@ class ProtocolMachine:
 
         self.packets = {}  # seqno => callbacks for all packets in-flight
 
+        self.logreq_packet_cb = None  # callback for each chunk of requested logs
+        self.datareq_packet_cb = None  # callback for each chunk of requested data
+
         self.seqno = 1  # 0 is reserved for IDP
 
+        self.session_mode = session_mode
         self.host_id = 0x1234  # XXX TODO Actually fill this in
         self.version_str = '9' + '\0'*13  # XXX TODO Actually fill this in
 
@@ -83,16 +87,59 @@ class ProtocolMachine:
         self._enqueue(DeviceResetPacket(seqno, reason), cb)
         return seqno
 
+    def request_stored_data(self, cb):
+        logging.debug(f'Requesting stored data')
+        seqno = self._seqno()
+        self._enqueue(SendStoredDataPacket(seqno), cb)
+        return seqno
+
+    def request_acquisition_start(self, ack_cb, chunk_cb):
+        logging.debug(f'Requesting acquisition start')
+        seqno = self._seqno()
+        self.datareq_packet_cb = chunk_cb
+        self._enqueue(SendStoredDataPacket(seqno), ack_cb)
+        return seqno
+
+    def request_acquisition_stop(self, cb):
+        logging.debug(f'Requesting acquisition stop')
+        seqno = self._seqno()
+        self._enqueue(SendStoredDataPacket(seqno), cb)
+        return seqno
+
+    def request_log_file(self, offset, length, ack_cb, chunk_cb):
+        seqno = self._seqno()
+        logging.debug('Requesting log file: %d' % seqno)
+
+        self.logreq_packet_cb = chunk_cb
+
+        self._enqueue(LogGetPacket(seqno, offset, length), ack_cb)
+        return seqno
+
+    def request_log_file(self, offset, length, ack_cb, chunk_cb):
+        seqno = self._seqno()
+        logging.debug('Requesting log file: %d' % seqno)
+
+        self.logreq_packet_cb = chunk_cb
+
+        self._enqueue(SendStoredDataPacket(seqno, offset, length), ack_cb)
+        return seqno
+
     def on_packet(self, pkt):
         logging.debug(f'Got packet: {pkt}')
 
+        # XXX TODO Do these need ACKs back to the band?  It seems to
+        # work without them, but I worry that it's keeping a table of
+        # outstanding seqnos and filling up its RAM with stuff we
+        # haven't ack'd.
+
         if pkt.header.kind == PacketType.ACK:
             return self.handle_ack(pkt)
-        if pkt.header.kind == PacketType.IS_DEVICE_PAIRED_RES:
+        if pkt.header.kind == PacketType.IS_DEVICE_PAIRED_RESP:
             return self.handle_is_device_paired_res(pkt)
-        if pkt.header.kind == PacketType.SESSION_START_RES:
+        if pkt.header.kind == PacketType.SESSION_START_RESP:
             return self.handle_session_start_resp(pkt)
-
+        if pkt.header.kind == PacketType.GET_LOG_FILE_RESP:
+            return self.handle_get_log_file_resp(pkt)
         return None
 
     def handle_ack(self, pkt):
@@ -102,7 +149,7 @@ class ProtocolMachine:
         seqno = pkt.header.seqno
 
         if pkt.is_success():
-            logging.debug(f'Success for packet {seqno}')
+            logging.debug(f'Success for packet {seqno} ({pkt.header.response})')
             # XXX TODO optional ACK handler for application
         else:
             logging.debug(f'Got an error for packet {seqno}: {pkt.status}')
@@ -113,12 +160,13 @@ class ProtocolMachine:
             if cb is not None:
                 cb(seqno, pkt.is_success(), pkt.header.response)
 
-        del self.packets[seqno]
+        if seqno:
+            del self.packets[seqno]
 
     def handle_is_device_paired_res(self, pkt):
         if not pkt.is_paired():
             self.update_session_state(SessionState.SS_PENDING)
-            resp = SessionStartPacket(self._seqno(), self.host_id, 0, self.version_str)
+            resp = SessionStartPacket(self._seqno(), self.host_id, self.session_mode, self.version_str)
 
             def handle_nak(seqno, succeeded, response):
                 logging.debug(f'[{seqno}] Got a NAK for SessionStart')
@@ -134,6 +182,14 @@ class ProtocolMachine:
         logging.debug('Got session start response, good to go!')
         self.update_session_state(SessionState.STARTED)
         # XXX TODO Add session start callback
+
+    def handle_get_log_file_resp(self, pkt):
+        if self.logreq_packet_cb:
+            self.logreq_packet_cb(pkt.logbuf)
+
+    def handle_get_data_resp(self, pkt):
+        if self.datareq_packet_cb:
+            self.datareq_packet_cb(pkt.logbuf)
 
     def _enqueue(self, pkt, cb=None):
         self.ble_conn.enqueue(pkt)
