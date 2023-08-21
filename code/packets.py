@@ -41,9 +41,12 @@ class PacketType(IntEnum):
     ACK = 0x00
 
     SESSION_START = 0x01
-    SESSION_START_RES = 0x02
+    SESSION_START_RESP = 0x02
 
     CONFIG = 0x03
+
+    START_ACQUISITION = 0x06
+    STOP_ACQUISITION = 0x07
 
     DEVICE_RESET = 0x0b
 
@@ -60,8 +63,10 @@ class PacketType(IntEnum):
     LEDS_CONTROL = 0x23
 
     IS_DEVICE_PAIRED = 0x2a
-    IS_DEVICE_PAIRED_RES = 0x2b
+    IS_DEVICE_PAIRED_RESP = 0x2b
 
+    GET_LOG_FILE = 0x44
+    GET_LOG_FILE_RESP = 0x45
 
 
 def _crc16(buf, s=0xffff) -> UInt16:
@@ -401,7 +406,7 @@ class SessionStartPacket(BasePacket):
     # it's actually UTF-8, I apologize for my ASCII-centrism.
     ENCODING = "ISO8859-1"
 
-    def __init__(self, seqno, host_id, mode_num, version_string, timestamp=0, response=0, crc=None):
+    def __init__(self, seqno, host_id=None, mode_num=None, version_string=None, timestamp=0, response=0, crc=None):
         '''Initializer
 
         host_id: a 32b value, seems to be the first bit of the phone's MAC
@@ -423,6 +428,9 @@ class SessionStartPacket(BasePacket):
         it's mostly just being honest about the friction between
         human-semantic strings and blessedly agnostic bytes.
         '''
+        if self.version_string is None:
+            return bytes()
+
         return bytes(self.version_string, self.ENCODING)
 
     def payload(self) -> bytes:
@@ -431,6 +439,7 @@ class SessionStartPacket(BasePacket):
     def update_payload(self, buf):
         self.host_id, self.mode_num = struct.unpack(">LB", buf[:5])
         version_bytes = buf[5:-1]
+        self.header.length += len(version_bytes)
         self.version_string = str(version_bytes, self.ENCODING)
 
 class SessionStartRespPacket(BasePacket):
@@ -443,7 +452,7 @@ class SessionStartRespPacket(BasePacket):
     TODO: Actually do something with the half-KB splat of crap it sends here
 
     '''
-    COMMAND = PacketType.SESSION_START_RES
+    COMMAND = PacketType.SESSION_START_RESP
     ENCODING = "ISO8859-1"
 
     def __init__(self, seqno, config=None, timestamp=0, response=0, crc=None):
@@ -465,6 +474,17 @@ class ConfigGetPacket(BasePacket):
     '''Queries the band for its configuration.  No args.
     '''
     COMMAND = PacketType.CONFIG
+
+class AcquisitionStartPacket(BasePacket):
+    '''Requests to start a capture session on the band
+    '''
+    COMMAND = PacketType.START_ACQUISITION
+
+class AcquisitionStopPacket(BasePacket):
+    '''Requests to start a capture session on the band
+    '''
+    COMMAND = PacketType.STOP_ACQUISITION
+
 
 class TechnicalStatusPacket(BasePacket):
     '''Queries the band for its "Technical Status Info".  No args.
@@ -522,7 +542,7 @@ class IsDevicePairedResponsePacket(BasePacket):
     as it's only zero if the device if the device isn't yet paired.
     If you send an IDP request while paired, it changes to nonzero.
     '''
-    COMMAND = PacketType.IS_DEVICE_PAIRED_RES
+    COMMAND = PacketType.IS_DEVICE_PAIRED_RESP
 
     def __init__(self, seqno, value=0, timestamp=0, response=0, crc=None):
         length = 24 + 5
@@ -540,6 +560,57 @@ class IsDevicePairedResponsePacket(BasePacket):
     def is_paired(self):
         return self.header.response != 0
 
+class LogGetPacket(BasePacket):
+    '''Request a chunk of the log file off the device
+
+    offset: the offset into the log file to request
+    reqlen: the number of bytes to request
+
+    FUN FACT!  This packet's payload is little-endian!
+
+    AND THIS IS WHY WE CANNOT HAVE NICE THINGS.
+    '''
+    COMMAND = PacketType.GET_LOG_FILE
+
+    def __init__(self, seqno, offset=0, reqlen=0, value=0, timestamp=0, response=0, crc=None):
+        length = 24 + 8
+
+        super(LogGetPacket, self).__init__(seqno, timestamp, response, crc, length=length)
+
+        self.offset = offset
+        self.reqlen = reqlen
+
+    def payload(self):
+        return struct.pack("<LL", self.offset, self.reqlen)
+
+    def update_payload(self, buf):
+        self.offset, self.reqlen = struct.unpack("<LL", buf)
+
+class LogGetRespPacket(BasePacket):
+    '''Response to a request for a chunk of the log file off the device
+
+    Note that this tends to 0xffff pad responses to make them the
+    requested length, but returns the real length in the reqlen field.
+    '''
+    COMMAND = PacketType.GET_LOG_FILE_RESP
+
+    def __init__(self, seqno, offset=0, reqlen=0, logbuf=None, value=0, timestamp=0, response=0, crc=None):
+        length = 24 + 4
+        if logbuf is not None:
+            length += len(logbuf)
+
+        super(LogGetRespPacket, self).__init__(seqno, timestamp, response, crc, length=length)
+
+        self.offset = offset
+        self.reqlen = reqlen
+        self.logbuf = logbuf
+
+    def payload(self):
+        return struct.pack(">LL", self.reqlen, self.offset) + self.logbuf
+
+    def update_payload(self, buf):
+        self.offset, self.reqlen = struct.unpack(">LL", buf[:8])
+        self.logbuf = buf[8:8+self.reqlen]
 
 class PacketStateMachine:
     '''Packet Parsing State Machine
@@ -654,7 +725,7 @@ class PacketStateMachine:
                 if self.pkt_cb:
                     self.pkt_cb(pkt)
                 else:
-                    logging.debug('Got packet: %s' % pkt)
+                    logging.debug('Got packet w/o cb: %s' % pkt)
                 # And now resume the while loop, in case we somehow
                 # wound up with a bunch of packets pending in queue.
 
