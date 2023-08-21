@@ -98,13 +98,13 @@ class ProtocolMachine:
         logging.debug(f'Requesting acquisition start')
         seqno = self._seqno()
         self.datareq_packet_cb = chunk_cb
-        self._enqueue(SendStoredDataPacket(seqno), ack_cb)
+        self._enqueue(AcquisitionStartPacket(seqno), ack_cb)
         return seqno
 
     def request_acquisition_stop(self, cb):
         logging.debug(f'Requesting acquisition stop')
         seqno = self._seqno()
-        self._enqueue(SendStoredDataPacket(seqno), cb)
+        self._enqueue(AcquisitionStopPacket(seqno), cb)
         return seqno
 
     def request_log_file(self, offset, length, ack_cb, chunk_cb):
@@ -116,14 +116,11 @@ class ProtocolMachine:
         self._enqueue(LogGetPacket(seqno, offset, length), ack_cb)
         return seqno
 
-    def request_log_file(self, offset, length, ack_cb, chunk_cb):
-        seqno = self._seqno()
-        logging.debug('Requesting log file: %d' % seqno)
-
-        self.logreq_packet_cb = chunk_cb
-
-        self._enqueue(SendStoredDataPacket(seqno, offset, length), ack_cb)
-        return seqno
+    def send_ack(self, pkt, status):
+        orig_kind = pkt.header.kind
+        seqno = pkt.header.seqno
+        pkt = AckPacket(seqno, status=status, orig_kind=orig_kind)
+        self._enqueue(pkt)
 
     def on_packet(self, pkt):
         logging.debug(f'Got packet: {pkt}')
@@ -182,13 +179,15 @@ class ProtocolMachine:
     def handle_session_start_resp(self, pkt):
         logging.debug('Got session start response, good to go!')
         self.update_session_state(SessionState.STARTED)
-        # XXX TODO Add session start callback
+        self.send_ack(pkt, 0)
 
     def handle_get_log_file_resp(self, pkt):
+        self.send_ack(pkt, 0)
         if self.logreq_packet_cb:
             self.logreq_packet_cb(pkt.logbuf)
 
     def handle_get_data_resp(self, pkt):
+        self.send_ack(pkt, 0)
         if self.datareq_packet_cb:
             self.datareq_packet_cb(pkt.logbuf)
 
