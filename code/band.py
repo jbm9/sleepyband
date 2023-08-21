@@ -19,6 +19,7 @@ RX_CHAR_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 RX_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
 TX_CHAR_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 
+
 class BandManager(gatt.DeviceManager):
     '''BLE Manager for discovering and connecting to bands
     '''
@@ -40,7 +41,7 @@ class BandManager(gatt.DeviceManager):
                 # logging.debug(f'MAC miss: got {device.mac_address}, expected {self.mac_address}')
                 return
         elif not device.alias().startswith("ITAMAR_"):
-            #logging.debug(f'Name filter miss: got {device.alias()}')
+            # logging.debug(f'Name filter miss: got {device.alias()}')
             return
 
         logging.debug("Discovered [%s] %s" % (device.mac_address, device.alias()))
@@ -231,7 +232,7 @@ class Band(gatt.Device):
 
         for i0 in range(0, len(buf), 20):
             i1 = min(i0 + 20, len(buf))
-            self.write_buf.append( (buf[i0:i1], seqno) )
+            self.write_buf.append((buf[i0:i1], seqno))
 
         if not self.write_pending:
             self._attempt_transmit()
