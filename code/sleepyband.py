@@ -29,6 +29,7 @@ SessionState = Enum('SessionState', ["NOT_STARTED",
                                      "SS_PENDING",
                                      "STARTED"])
 
+
 class ProtocolMachine:
     '''Tracks the state of our current line, and muxes data
 
