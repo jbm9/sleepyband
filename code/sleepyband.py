@@ -132,6 +132,8 @@ class ProtocolMachine:
 
         if pkt.header.kind == PacketType.ACK:
             return self.handle_ack(pkt)
+        if pkt.header.kind == PacketType.DATA_RESP:
+            return self.handle_data_resp(pkt)
         if pkt.header.kind == PacketType.IS_DEVICE_PAIRED_RESP:
             return self.handle_is_device_paired_res(pkt)
         if pkt.header.kind == PacketType.SESSION_START_RESP:
@@ -161,7 +163,21 @@ class ProtocolMachine:
         if seqno:
             del self.packets[seqno]
 
+    def handle_data_resp(self, pkt):
+        '''Handle an inbound data packet
+
+        If we have a registered callback for this, call it with the
+        packet's data.
+
+        Sends a success ack regardless of whether we have a callback or not.
+        '''
+        if self.datareq_packet_cb:
+            self.datareq_packet_cb(pkt.data)
+        self.send_ack(pkt, 0)
+
     def handle_is_device_paired_res(self, pkt):
+        self.send_ack(pkt, 0)
+
         if not pkt.is_paired():
             self.update_session_state(SessionState.SS_PENDING)
             resp = SessionStartPacket(self._seqno(), self.host_id, self.session_mode, self.version_str)

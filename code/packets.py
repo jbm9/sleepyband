@@ -48,6 +48,7 @@ class PacketType(IntEnum):
 
     START_ACQUISITION = 0x06
     STOP_ACQUISITION = 0x07
+    DATA_RESP = 0x08
 
     DEVICE_RESET = 0x0b
 
@@ -499,6 +500,28 @@ class AcquisitionStopPacket(BasePacket):
     '''Requests to start a capture session on the band
     '''
     COMMAND = PacketType.STOP_ACQUISITION
+
+
+class DataRespPacket(BasePacket):
+    '''Raw data coming back from the band during acquisition
+    '''
+    COMMAND = PacketType.DATA_RESP
+
+    def __init__(self, seqno, data=None, timestamp=0, response=0, crc=None):
+        '''Initializer: just takes a big opaque buffer
+        '''
+        self.data = data
+        data_len = 0 if data is None else len(data)
+        length = 24 + data_len
+
+        super(DataRespPacket, self).__init__(seqno, timestamp, response, crc, length=length)
+
+    def payload(self) -> bytes:
+        return self.data
+
+    def update_payload(self, buf):
+        self.data = buf
+        self.length = 24 + len(buf)
 
 
 class TechnicalStatusPacket(BasePacket):
