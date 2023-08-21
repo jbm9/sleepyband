@@ -382,6 +382,19 @@ class AckPacket(BasePacket):
     def update_payload(self, buf):
         self.orig_kind, self.status, self.unk_3_5 = struct.unpack(">HBH", buf)
 
+        # We send ours big-endian, but the band sends its orig_kind
+        # value little-endian.  Do a quick heuristic fixup.
+        if self.orig_kind > 0xff:
+            # THIS
+            # IS
+            # WHY
+            # WE
+            # CAN'T
+            # HAVE
+            # NICE
+            # THINGS
+            self.orig_kind >>= 8
+
     def is_success(self):
         return 0 == self.status
 

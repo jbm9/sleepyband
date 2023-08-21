@@ -127,21 +127,6 @@ class TestPacket(unittest.TestCase):
         rt_got = pkt_cls.from_bytes(got)
         self.assert_headers_equal(pkt.header, rt_got.header, pkt_cls)
 
-    def test_ack_packet__nack(self):
-        expected = bytes.fromhex("bbbb00000000000000000000abffffff1d00000000004165f00fcd0000")
-        pkt = AckPacket(0xffffffab, 0xcd, 0xf00f)
-        got = pkt.to_bytes()
-        self.maybe_dump_bufs(expected, got)
-        self.assertEqual(expected, got)
-        self.assertEqual(0xf00f, pkt.orig_kind)
-        self.assertEqual(0xcd, pkt.status)
-        self.assertFalse(pkt.is_success())
-
-        rt_got = AckPacket.from_bytes(got)
-        self.assert_headers_equal(pkt.header, rt_got.header, "AckPacket")
-        self.assertEqual(pkt.orig_kind, rt_got.orig_kind)
-        self.assertEqual(pkt.status, rt_got.status)
-
     def test_ack_packet__succ(self):
         # And now a success case
         expected = bytes.fromhex("bbbb00000000000000000000110000001d0000000000fb17002a000000")
@@ -157,6 +142,25 @@ class TestPacket(unittest.TestCase):
         self.assert_headers_equal(pkt.header, rt_got.header, "AckPacket")
         self.assertEqual(pkt.orig_kind, rt_got.orig_kind)
         self.assertEqual(pkt.status, rt_got.status)
+
+    def test_ack_packet__unpack_received(self):
+        # See comment in AckPacket.update_payload
+        buf = bytes.fromhex('bbbb000000000000000000000c0000001d00000000000b1a4400000000')
+        pkt = AckPacket.from_bytes(buf)
+        self.assertEqual(pkt.header.seqno, 0x0c)
+        self.assertEqual(pkt.status, 0)
+        self.assertEqual(pkt.orig_kind, 0x44)
+        self.assertEqual(pkt.unk_3_5, 0)
+
+    def test_ack_packet__unpack_sent(self):
+        # See comment in AckPacket.update_payload
+        buf = bytes.fromhex('bbbb00000000000000000000110000001d0000000000fb17002a000000')
+        pkt = AckPacket.from_bytes(buf)
+        self.assertEqual(pkt.orig_kind, 0x2a)
+        self.assertEqual(pkt.header.seqno, 0x11)
+        self.assertEqual(pkt.status, 0)
+        self.assertEqual(pkt.header.response, 0)
+        self.assertEqual(pkt.unk_3_5, 0)
 
     def test_session_start_packet(self):
         expected = bytes.fromhex('''
