@@ -37,10 +37,10 @@ class BandManager(gatt.DeviceManager):
 
         if self.mac_address:
             if self.mac_address != device.mac_address:
-                logging.debug(f'MAC miss: got {device.mac_address}, expected {self.mac_address}')
+                # logging.debug(f'MAC miss: got {device.mac_address}, expected {self.mac_address}')
                 return
         elif not device.alias().startswith("ITAMAR_"):
-            logging.debug(f'Name filter miss: got {device.alias()}')
+            #logging.debug(f'Name filter miss: got {device.alias()}')
             return
 
         logging.debug("Discovered [%s] %s" % (device.mac_address, device.alias()))
@@ -142,14 +142,14 @@ class Band(gatt.Device):
 
         def run_gatt_manager():
             logging.debug('thread entered')
+            manager.start_discovery()  # Needed to find the thing
+            manager.run()
+
             if mac_address is None:
                 manager.sb_hit_cb = _connect
                 logging.debug(f'No MAC, starting discovery')
-                manager.start_discovery()
-                manager.run()
             else:
                 logging.debug(f'Skipping discovery, target MAC={mac_address}')
-                manager.run()
                 _connect(mac_address)
 
         logging.debug('find_band starting thread')
