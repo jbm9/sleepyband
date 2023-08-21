@@ -22,6 +22,7 @@ from typing import Optional
 # Quick type annotation for shorts
 UInt16 = int
 
+
 class InvalidMagicException(ValueError):
     '''Attempted to parse a packet with invalid magic'''
 
@@ -184,15 +185,13 @@ class Header:
         if magic != cls.MAGIC:
             raise InvalidMagicException("Incorrect magic")
 
-
-        bufp = buf[:22] + bytes([0,0]) + buf[24:buflen]
+        bufp = buf[:22] + bytes([0, 0]) + buf[24:buflen]
         crc_computed = _crc16(bufp)
 
         if not skip_crc_check and crc != crc_computed:
-            raise CRCMismatchException(f"Got a mismatched CRC for packet of type {kind:04x}/{len(buf)}: {crc:04x} vs {crc_computed:04x}")
+            raise CRCMismatchException(f"Packet type {kind:04x}/{len(buf)}: {crc:04x} vs {crc_computed:04x}")
 
         return (kind, ts, seqno, buflen, response, crc)
-
 
     @classmethod
     def peek_len(cls, buf: bytes) -> UInt16:
@@ -223,8 +222,8 @@ class Header:
         callers should handle those themselves.
 
         '''
-        l = cls.peek_len(buf)
-        kind, ts, seqno, buflen, response, crc = cls.unpack_with_checks(buf[:l])
+        buflen = cls.peek_len(buf)
+        kind, ts, seqno, buflen, response, crc = cls.unpack_with_checks(buf[:buflen])
         result = Header(kind, ts, seqno, buflen, response)
         result.crc = crc
         return result
@@ -279,6 +278,7 @@ class BasePacket(ABC):
     consumers tell if it's an ACK or a NAK packet.
     '''
     COMMAND = 0xefbe  # PacketType: override this in all child classes
+
     def __init__(self, seqno, timestamp=0, response=0, crc=None, length=24):
         self.header = Header(self.COMMAND,
                              timestamp=timestamp,
@@ -374,8 +374,7 @@ class AckPacket(BasePacket):
         super(AckPacket, self).__init__(seqno, timestamp, response, crc, length=24+5)
         self.status = status
         self.orig_kind = orig_kind
-        self.unk_3_5 = 0  # XXX TODO This seems to be 0 in all
-                          # generated packets, but inbound is unknown.
+        self.unk_3_5 = 0    # XXX TODO This seems to be 0 in all outbound packets, but inbound is unknown.
 
     def payload(self):
         return struct.pack(">HBH", self.orig_kind, self.status, self.unk_3_5)
@@ -442,6 +441,7 @@ class SessionStartPacket(BasePacket):
         self.header.length += len(version_bytes)
         self.version_string = str(version_bytes, self.ENCODING)
 
+
 class SessionStartRespPacket(BasePacket):
     '''Reponse to SessionStartPacket
 
@@ -475,10 +475,12 @@ class ConfigGetPacket(BasePacket):
     '''
     COMMAND = PacketType.CONFIG
 
+
 class AcquisitionStartPacket(BasePacket):
     '''Requests to start a capture session on the band
     '''
     COMMAND = PacketType.START_ACQUISITION
+
 
 class AcquisitionStopPacket(BasePacket):
     '''Requests to start a capture session on the band
@@ -490,6 +492,7 @@ class TechnicalStatusPacket(BasePacket):
     '''Queries the band for its "Technical Status Info".  No args.
     '''
     COMMAND = PacketType.GET_TECHNICAL_STATUS
+
 
 class SendStoredDataPacket(BasePacket):
     '''Queries the band to start sending over stored data.
@@ -560,6 +563,7 @@ class IsDevicePairedResponsePacket(BasePacket):
     def is_paired(self):
         return self.header.response != 0
 
+
 class LogGetPacket(BasePacket):
     '''Request a chunk of the log file off the device
 
@@ -586,6 +590,7 @@ class LogGetPacket(BasePacket):
     def update_payload(self, buf):
         self.offset, self.reqlen = struct.unpack("<LL", buf)
 
+
 class LogGetRespPacket(BasePacket):
     '''Response to a request for a chunk of the log file off the device
 
@@ -611,6 +616,7 @@ class LogGetRespPacket(BasePacket):
     def update_payload(self, buf):
         self.offset, self.reqlen = struct.unpack(">LL", buf[:8])
         self.logbuf = buf[8:8+self.reqlen]
+
 
 class PacketStateMachine:
     '''Packet Parsing State Machine
@@ -734,4 +740,3 @@ class PacketStateMachine:
                 self.bufs.pop(0)
                 # Re-enter the while loop to recursively pop down
                 # noise and parse any packets in queue.
-
