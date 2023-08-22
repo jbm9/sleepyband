@@ -2,11 +2,10 @@ init:
 	pip install -r requirements.txt
 
 test:
-#	python3 -m unittest discover -s tests/ test_sleepyband.py
-	python3 test_sleepyband.py
+	python3 -m unittest discover -s tests/
 
 coverage:
-	coverage run --branch test_sleepyband.py
+	coverage run --branch -m unittest discover -s tests/
 	coverage html
 
 codestyle:

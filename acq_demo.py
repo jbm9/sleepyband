@@ -15,8 +15,8 @@ import sys
 import threading
 import time
 
-from band import Band
-from sleepyband import ProtocolMachine, SessionState
+from sleepyband.band import Band
+from sleepyband.protocol_machine import ProtocolMachine, SessionState
 
 logging.basicConfig(level=logging.DEBUG)
 

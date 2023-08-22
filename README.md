@@ -62,7 +62,8 @@ phone's filesystem via a file manager.
 
 ## Contents
 
-code/ -- The implementation
+sleepyband/ -- The implementation of the library
+tests/ -- Unit tests for the library
 
 
 ## Administrivia

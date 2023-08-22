@@ -15,7 +15,7 @@ from __future__ import annotations
 from enum import Enum
 import logging
 
-from packets import *
+from .packets import *
 
 
 ConnectionState = Enum('ConnectionState', ["DISCONNECTED",  # As labeled

@@ -4,10 +4,10 @@ import os
 import sys
 import unittest
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from packets import _crc16, Header  # noqa
-from packets import *  # noqa
+from sleepyband.packets import _crc16, Header  # noqa
+from sleepyband.packets import *  # noqa
 
 
 class TestCRC(unittest.TestCase):

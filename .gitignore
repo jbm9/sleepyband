@@ -8,3 +8,4 @@
 
 # Stuff left lying around by coverage analysis
 .coverage
+htmlcov/
