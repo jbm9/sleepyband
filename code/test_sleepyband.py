@@ -257,5 +257,137 @@ class TestPacket(unittest.TestCase):
         self.assertEqual(pkt.reqlen, rt_got.reqlen)
 
 
+class TestPacketStateMachine(TestPacket):
+    def test_smoke(self):
+        pkts_rx = []
+        psm = PacketStateMachine(pkts_rx.append)
+
+        buf = bytes.fromhex('''
+            bbbb440000000000000000003412000020000000
+            000014ce63000000000800000000000000000000
+        ''')
+
+        psm.rx_buf(buf[:20])
+        self.assertEqual(0, len(pkts_rx))
+
+        psm.rx_buf(buf[20:40])
+        self.assertEqual(1, len(pkts_rx))
+
+        rt_got = pkts_rx[0]
+        pkt = LogGetPacket(0x1234, 99, 2048)
+        pkt.to_bytes()  # For the side effect
+
+        self.assert_headers_equal(pkt.header, rt_got.header, pkt.__class__)
+        self.assertEqual(pkt.offset, rt_got.offset)
+        self.assertEqual(pkt.reqlen, rt_got.reqlen)
+
+    def test_smoke__subclass_of_subclass(self):
+        buf = bytes.fromhex("bbbb0b000000000000000000341200001900000000004f8d00")
+        pkt = DeviceResetPacket(0x1234, 0)
+        pkt.to_bytes()  # Fill in the header's CRC field
+
+        pkts_rx = []
+        psm = PacketStateMachine(pkts_rx.append)
+
+        for i in range(0, len(buf), 20):
+            psm.rx_buf(buf[i:i+20])
+        self.assertEqual(1, len(pkts_rx))
+
+        rt_got = pkts_rx[0]
+        self.assert_headers_equal(pkt.header, rt_got.header, pkt.__class__)
+        self.assertEqual(pkt.value, rt_got.value)
+
+
+    def test_smoke__no_callback(self):
+        psm = PacketStateMachine(None)
+
+        buf = bytes.fromhex('''
+            bbbb440000000000000000003412000020000000
+            000014ce63000000000800000000000000000000
+        ''')
+
+        psm.rx_buf(buf[:20])
+        self.assertEqual(1, len(psm.bufs))
+
+        psm.rx_buf(buf[20:40])
+
+        # And this packet now gets
+        # dropped on the floor
+        self.assertEqual(0, len(psm.bufs))
+
+    def test__BadMagic(self):
+        pkts_rx = []
+        psm = PacketStateMachine(pkts_rx.append)
+
+        buf = bytes.fromhex('''
+                                bebe440000000000000000003412000020000000
+                                0000ffff63000000000800000000000000000000
+        ''')
+
+        psm.rx_buf(buf[:20])
+        self.assertEqual(0, len(pkts_rx))
+
+        psm.rx_buf(buf[20:40])
+        self.assertEqual(0, len(pkts_rx))
+        # This silently drops the bogus buffer and waits for another
+        # buffer to come in before attempting another parse.
+
+        self.assertEqual(1, len(psm.bufs))
+
+    def test__CRCMismatch(self):
+        pkts_rx = []
+        psm = PacketStateMachine(pkts_rx.append)
+
+        buf = bytes.fromhex('''
+                                bbbb440000000000000000003412000020000000
+                                0000ffff63000000000800000000000000000000
+        ''')
+
+        psm.rx_buf(buf[:20])
+        self.assertEqual(0, len(pkts_rx))
+
+        self.assertRaises(CRCMismatchException, lambda: psm.rx_buf(buf[20:40]))
+
+    def test__unk_packet(self):
+        pkts_rx = []
+        psm = PacketStateMachine(pkts_rx.append)
+
+        buf = bytes.fromhex('''
+                                bbbbf10000000000000000003412000020000000
+                                0000428e63000000000800000000000000000000
+        ''')
+
+        psm.rx_buf(buf[:20])
+        self.assertEqual(0, len(pkts_rx))
+        psm.rx_buf(buf[20:40])
+        self.assertEqual(0, len(pkts_rx))
+
+        # This silently consumes the unknown packet
+        self.assertEqual(0, len(psm.bufs))
+
+    def test__long_packet(self):
+        buf = bytes.fromhex('''
+ bbbb4500000000000000000094020000a0000000
+ 0000fb820000000000000000ffffffffffffffff
+ ffffffffff31313032323438303500ffffffffff
+ 0affffffffffffffffffffffffffffffffffffff
+ ffffffffffffffffffffffffffffffffffffffff
+ ffffffffffffffffffffffffffffffffffffffff
+ ffffffffffffffffffffffffffffffffffffffff
+ ffffffffffffffffffffffffffffffffffffffff
+
+''')
+        pkts_rx = []
+        psm = PacketStateMachine(pkts_rx.append)
+
+        # A bunch of noops
+        for i in range(0, len(buf)-21, 20):
+            psm.rx_buf(buf[i:i+20])
+            self.assertEqual(0, len(pkts_rx))
+
+        psm.rx_buf(buf[-20:])
+        self.assertEqual(1, len(pkts_rx))
+
+
 if __name__ == '__main__':
     unittest.main()
