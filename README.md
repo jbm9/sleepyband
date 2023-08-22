@@ -1,7 +1,7 @@
 # Sleepyband
 
-Sleepyband is a linux-only tool to capture data logs from the
-WatchPat-One disposable sleep study device.
+Sleepyband is a very unofficial, linux-only tool to capture data from
+the WatchPat-One disposable sleep study device.
 
 Sleepyband is not affiliated with WatchPat-One or Itamar Medical in
 any way, shape, or form.  WatchPat-One (or however they do their trade
@@ -16,7 +16,28 @@ Sleepyband is also pretty minimalist, and only supports the things I
 need it to.  PRs are welcome, but bear in mind that I don't intend to
 offer all that much support for this.
 
+Please note that this is a very pre-release version, and the structure
+of the repository will be changing at some point.
+
+## Goal
+
+The goal of sleepyband is to be able to download data from the band
+and then extract it out into the appropriate signals.
+
+## Status/Roadmap
+
+There are two main components of this project: data acquisition, then
+data analysis.  We currently have data acquisition together, and are
+now moving on to pulling apart the data that comes back from the
+device.
+
 ## Development Tips
+
+The protocol implementation allows you to log all traffic to and from
+the device by calling `attach_traffic_log()` on the device interface
+instance.  Pass it a file-like object, and it will log all traffic
+there in human-readable hex.  This is pretty helpful when trying to
+figure out what's going on.
 
 You can use an Adafruit Feather nRF52 board to fake out the
 characteristics used by the device, and then use it to play
@@ -39,10 +60,8 @@ creates log files that can be downloaded to your phone in the
 diagnostics menu.  From there, you can access the files on your
 phone's filesystem via a file manager.
 
-
 ## Contents
 
-web/ -- The website for this
 code/ -- The implementation
 
 
@@ -51,3 +70,9 @@ code/ -- The implementation
 Copyright (c) 2023 Josh Myer <josh@joshisanerd.com>
 
 Released under the AGPL
+
+Code of Conduct
+
+Sleepyband uses the "Contributor Covenant" code of conduct (currently
+version 1.3.0).  Please review [CODE_OF_CONDUCT.md](Code of Conduct)
+before submitting PRs or diffs to the repository.
