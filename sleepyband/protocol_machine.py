@@ -167,12 +167,13 @@ class ProtocolMachine:
         '''Handle an inbound data packet
 
         If we have a registered callback for this, call it with the
-        packet's data.
+        raw packet buffer, including the header.  This is the only way
+        to keep track of the metadata coming in.
 
         Sends a success ack regardless of whether we have a callback or not.
         '''
         if self.datareq_packet_cb:
-            self.datareq_packet_cb(pkt.data)
+            self.datareq_packet_cb(pkt.to_bytes())
         self.send_ack(pkt, 0)
 
     def handle_is_device_paired_res(self, pkt):

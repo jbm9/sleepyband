@@ -76,9 +76,9 @@ class AcqRunner:
                     def ssd_callback(seqno, succeeded, response):
                         logging.debug(f'[{seqno}] Start Acq response: {succeeded}/{response}')
 
-                    def chunk_callback(databuf):
-                        self.data_captured_file.write(databuf)
-                        logging.debug(f'Got data buffer.')
+                    def chunk_callback(packet_buf):
+                        self.data_captured_file.write(packet_buf)
+                        logging.debug(f'Got raw packet buffer.')
 
                     seqno = self.pm.request_acquisition_start(ssd_callback, chunk_callback)
                     self.made_request = True
