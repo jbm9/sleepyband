@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from enum import Enum
 import logging
+import time
 
 from .packets import *
 
@@ -45,7 +46,13 @@ class ProtocolMachine:
     helper method to allocate sequence ids
 
     '''
-    def __init__(self, ss_callback, session_mode=0):
+    def __init__(self, ss_callback, session_mode=0, use_timestamp=True):
+        '''Initializer:
+
+        * ss_callback: called when session state changes occur
+        * session_mode: optional, 0 is a normal session
+        * use_timestamp: if True, uses time.time() as session start time, otherwise zero.
+        '''
         self.connection_state = ConnectionState.DISCONNECTED
         self.session_state = SessionState.NOT_STARTED
         self.session_state_cb = ss_callback
@@ -63,6 +70,8 @@ class ProtocolMachine:
         self.session_mode = session_mode
         self.host_id = 0x1234  # XXX TODO Actually fill this in
         self.version_str = '9' + '\0'*13  # XXX TODO Actually fill this in
+
+        self.use_timestamp = use_timestamp  # This feels silly, but is useful
 
     def _seqno(self):
         result = self.seqno
@@ -181,6 +190,7 @@ class ProtocolMachine:
 
         if not pkt.is_paired():
             self.update_session_state(SessionState.SS_PENDING)
+            ts = 0 if not self.use_timestamp else int(time.time()*100)
             resp = SessionStartPacket(self._seqno(), self.host_id, self.session_mode, self.version_str)
 
             def handle_nak(seqno, succeeded, response):

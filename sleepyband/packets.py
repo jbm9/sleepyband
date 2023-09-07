@@ -100,7 +100,7 @@ class Header:
     be big-endian.  This is why we can't have nice things.
 
     kind: the type of the command to send (see `PacketType`)
-    timestamp: timestamp for the packet, mostly unused
+    timestamp: timestamp for the packet, mostly unused (centiseconds of the epoch)
     seqno: sequence number (should be unique per packet)
     length: length of this packet (including 24 bytes for the header)
     response: an extra chunk of data, used mostly in responses
@@ -124,7 +124,7 @@ class Header:
         self.response = response
 
     def __str__(self) -> str:
-        return f'[0x{self.packetid:x}: {self.kind:04x}] ts={self.timestamp} crc={self.crc:04x}'
+        return f'[0x{self.seqno:x}: {self.kind:04x}] l={self.length} ts={self.timestamp} crc={self.crc:04x}'
 
     def to_bytes(self, zero_crc=False, skip_crc_compute=False) -> bytes:
         '''Get a packed bytes version of this header
@@ -214,7 +214,7 @@ class Header:
         return buflen
 
     @classmethod
-    def from_bytes(cls, buf: bytes) -> Header:
+    def from_bytes(cls, buf: bytes, skip_crc_check=False) -> Header:
         '''Parses a complete packet from buf
 
         Returns a Header on success
@@ -222,9 +222,12 @@ class Header:
         Doesn't catch InvalidMagicException or CRCMismatchException;
         callers should handle those themselves.
 
+        * buf: the buffer of bytes to parse
+        * skip_crc_check: set to True to ignore CRC errors (dangerous)
         '''
         buflen = cls.peek_len(buf)
-        kind, ts, seqno, buflen, response, crc = cls.unpack_with_checks(buf[:buflen])
+        kind, ts, seqno, buflen, response, crc = cls.unpack_with_checks(buf[:buflen],
+                                                                        skip_crc_check)
         result = Header(kind, ts, seqno, buflen, response)
         result.crc = crc
         return result
@@ -521,7 +524,7 @@ class DataRespPacket(BasePacket):
 
     def update_payload(self, buf):
         self.data = buf
-        self.length = 24 + len(buf)
+        self.header.length = 24 + len(buf)
 
 
 class TechnicalStatusPacket(BasePacket):
