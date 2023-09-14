@@ -40,12 +40,8 @@ def acquire(log_level, mac_address, packet_log, data_log):
     logging.basicConfig(level=log_level.upper())
 
     dumper = AcqRunner(data_log, mac_address=mac_address, packet_log=packet_log)
-    try:
-        dumper.loop()
-    except KeyboardInterrupt:
-        dumper.stop()
-        sys.exit(1)
 
+    _run_loop(dumper)
 
 @cli.command()
 @click.option('--log-level', default="info")
@@ -56,11 +52,8 @@ def device_log(log_level, mac_address, packet_log, device_log):
     logging.basicConfig(level=log_level.upper())
 
     dumper = DeviceLogRunner(device_log, mac_address=mac_address, packet_log=packet_log)
-    try:
-        dumper.loop()
-    except KeyboardInterrupt:
-        dumper.stop()
-        sys.exit(1)
+
+    _run_loop(dumper)
 
 
 if __name__ == '__main__':
