@@ -77,6 +77,28 @@ class BaseRunner:
         # self.gatt_thread.stop()
 
 
+class BlinkRunner(BaseRunner):
+    '''Encapsulates a "blink" demo
+
+    This connects to the band and toggles the LEDs through their
+    possible values, changing state once per second.
+    '''
+
+    def __init__(self, **kwargs):
+        super(BlinkRunner, self).__init__(**kwargs)
+        self.led_no = 0  # Initial LED state at start of our loop
+
+    def one_loop(self):
+        '''Blink loop
+        '''
+
+        def led_callback(seqno, succeeded, response):
+            logging.debug(f'[{seqno}] Set LEDs to {self.led_no}')
+
+        seqno = self.pm.set_led_value(self.led_no, led_callback)
+        logging.debug(f'[{seqno}] Attempting to set LEDs to {self.led_no}')
+        self.led_no = (self.led_no + 1) % 4
+
 
 class AcqRunner(BaseRunner):
     '''Encapsulates a Acquisition demo

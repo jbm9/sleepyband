@@ -5,12 +5,30 @@ import sys
 
 import click
 
-from sleepyband.demo_classes import AcqRunner, DeviceLogRunner
+from sleepyband.demo_classes import AcqRunner, BlinkRunner, DeviceLogRunner
 
 
 @click.group()
 def cli():
     pass
+
+
+def _run_loop(runner):
+    try:
+        runner.loop()
+    except KeyboardInterrupt:
+        runner.stop()
+        sys.exit(1)
+
+@cli.command()
+@click.option('--log-level', default="info")
+@click.option('-m', '--mac-address', default=None)
+@click.option('-p', '--packet-log', default=None)
+def blink(log_level, mac_address, packet_log):
+    logging.basicConfig(level=log_level.upper())
+    blinker = BlinkRunner(mac_address=mac_address, packet_log=packet_log)
+
+    _run_loop(blinker)
 
 
 @cli.command()
