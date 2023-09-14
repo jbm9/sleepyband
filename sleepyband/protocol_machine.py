@@ -194,7 +194,7 @@ class ProtocolMachine:
             resp = SessionStartPacket(self._seqno(), self.host_id, self.session_mode, self.version_str)
 
             def handle_nak(seqno, succeeded, response):
-                logging.debug(f'[{seqno}] Got a NAK for SessionStart')
+                logging.debug(f'[{seqno}] Got a NAK for SessionStart (this is not a failure?)')
                 self.update_session_state(SessionState.SS_FAILED)
 
             self._enqueue(resp, handle_nak)
