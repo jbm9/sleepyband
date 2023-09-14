@@ -60,15 +60,41 @@ creates log files that can be downloaded to your phone in the
 diagnostics menu.  From there, you can access the files on your
 phone's filesystem via a file manager.
 
+## Demo apps
+
+There are demo apps you can use to interact with the device.
+
+To blink the LEDs and test connectivity:
+```
+PYTHONPATH=. ./sleepyband/demos.py blink --log-level=DEBUG
+```
+
+To download the logs off the device:
+```
+PYTHONPATH=. ./sleepyband/demos.py device-log --log-level=DEBUG -o current_log.txt
+```
+
+To set up a data collection session:
+```
+PYTHONPATH=. ./sleepyband/demos.py acquire --log-level=DEBUG -o session.dat
+```
+
+## Data format
+
+This enables us to do a full data acquisition cycle from a device.
+Unfortunately, the data itself is totally opaque at this time.  I've
+done a bit of work on pulling them apart, but haven't gotten anything
+nailed down just yet.
+
 ## Contents
 
-sleepyband/ -- The implementation of the library
-tests/ -- Unit tests for the library
+* sleepyband/ -- The implementation of the library
+* tests/ -- Unit tests for the library
 
 
 ## Administrivia
 
-Copyright (c) 2023 Josh Myer <josh@joshisanerd.com>
+Copyright (c) 2023 Josh Myer <<josh@joshisanerd.com>>
 
 Released under the AGPL
 
